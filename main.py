@@ -2,6 +2,7 @@ import os
 import asyncio
 import tempfile
 import wave
+import time
 import pyaudio
 import whisper
 import anthropic
@@ -49,22 +50,33 @@ def transcribe(audio_path):
     print(f"Sen: {text}")
     return text
 
-# --- AI: Claude ---
-def ask_claude(user_input, history):
+# --- AI: Claude (retry destekli) ---
+def ask_claude(user_input, history, retries=3):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     history.append({"role": "user", "content": user_input})
     if len(history) > MAX_HISTORY:
         history = history[-MAX_HISTORY:]
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=1024,
-        system=JARVIS_SYSTEM_PROMPT,
-        messages=history
-    )
-    reply = response.content[0].text
-    history.append({"role": "assistant", "content": reply})
-    print(f"Jarvis: {reply}")
-    return reply, history
+
+    for attempt in range(retries):
+        try:
+            response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1024,
+                system=JARVIS_SYSTEM_PROMPT,
+                messages=history
+            )
+            reply = response.content[0].text
+            history.append({"role": "assistant", "content": reply})
+            print(f"Jarvis: {reply}")
+            return reply, history
+        except anthropic.APIStatusError as e:
+            if e.status_code == 529 and attempt < retries - 1:
+                wait = (attempt + 1) * 3
+                print(f"Sunucu yogun, {wait} saniye bekliyorum...")
+                time.sleep(wait)
+            else:
+                raise
+    return "Uzgunüm, su an cevap veremiyorum.", history
 
 # --- TTS: edge-tts ---
 async def speak_async(text):
@@ -80,6 +92,7 @@ def speak(text):
     pygame.mixer.music.play()
     while pygame.mixer.music.get_busy():
         pygame.time.Clock().tick(10)
+    pygame.mixer.music.unload()
     os.unlink(audio_file)
 
 # --- Ana dongu ---
