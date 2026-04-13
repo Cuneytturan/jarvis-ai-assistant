@@ -1,7 +1,8 @@
 import time
 import anthropic
 from config import ANTHROPIC_API_KEY, CLAUDE_MODEL, JARVIS_SYSTEM_PROMPT, MAX_HISTORY
-from tools.browser_tool import browser_search, browser_open, youtube_play, youtube_music_play, spotify_search
+from tools.browser_tool import browser_search, browser_open
+from tools.browser_control_tool import youtube_play_song, youtube_music_play_song, browser_play_pause, browser_next_track
 from tools.file_tool import file_write, file_append, file_read, file_delete, file_list
 from tools.app_tool import app_open, app_close
 from tools.system_tool import volume_up, volume_down, volume_mute
@@ -9,32 +10,37 @@ from tools.system_tool import volume_up, volume_down, volume_mute
 TOOLS = [
     {
         "name": "browser_search",
-        "description": "Google'da arama yapar ve sonucu tarayicide acar.",
+        "description": "Google'da arama yapar.",
         "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}
     },
     {
         "name": "browser_open",
-        "description": "Bir URL'yi tarayicide acar.",
+        "description": "URL'yi tarayicide acar.",
         "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}
     },
     {
-        "name": "youtube_play",
-        "description": "YouTube'da sarki veya video arar ve acar. Muzik/video isteklerinde kullan.",
-        "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "Sarki adi, sanatci adi"}}, "required": ["query"]}
+        "name": "youtube_play_song",
+        "description": "YouTube'da sarki/video arar ve otomatik olarak oynatir. Muzik isteklerinde kullan.",
+        "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "Sarki ve sanatci adi"}}, "required": ["query"]}
     },
     {
-        "name": "youtube_music_play",
-        "description": "YouTube Music'te sarki arar ve acar.",
+        "name": "youtube_music_play_song",
+        "description": "YouTube Music'te sarki arar ve otomatik oynatir.",
         "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}
     },
     {
-        "name": "spotify_search",
-        "description": "Spotify'da sarki veya sanatci acar.",
-        "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}
+        "name": "browser_play_pause",
+        "description": "Tarayicidaki muzigi play veya pause yapar.",
+        "input_schema": {"type": "object", "properties": {}, "required": []}
+    },
+    {
+        "name": "browser_next_track",
+        "description": "Sonraki sarkiya gecer.",
+        "input_schema": {"type": "object", "properties": {}, "required": []}
     },
     {
         "name": "file_write",
-        "description": "Dosya olusturur ve icerik yazar. Kod yazma, not alma icin kullan.",
+        "description": "Dosya olusturur ve icerik yazar.",
         "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}
     },
     {
@@ -59,7 +65,7 @@ TOOLS = [
     },
     {
         "name": "app_open",
-        "description": "Uygulama acar. Ornek: spotify, chrome, notepad, calculator, vscode",
+        "description": "Uygulama acar: spotify, chrome, notepad, calculator, vscode",
         "input_schema": {"type": "object", "properties": {"app_name": {"type": "string"}}, "required": ["app_name"]}
     },
     {
@@ -86,21 +92,22 @@ TOOLS = [
 
 def run_tool(name, inputs):
     mapping = {
-        "browser_search":     lambda i: browser_search(i["query"]),
-        "browser_open":       lambda i: browser_open(i["url"]),
-        "youtube_play":       lambda i: youtube_play(i["query"]),
-        "youtube_music_play": lambda i: youtube_music_play(i["query"]),
-        "spotify_search":     lambda i: spotify_search(i["query"]),
-        "file_write":         lambda i: file_write(i["path"], i["content"]),
-        "file_append":        lambda i: file_append(i["path"], i["content"]),
-        "file_read":          lambda i: file_read(i["path"]),
-        "file_delete":        lambda i: file_delete(i["path"]),
-        "file_list":          lambda i: file_list(i.get("path", ".")),
-        "app_open":           lambda i: app_open(i["app_name"]),
-        "app_close":          lambda i: app_close(i["app_name"]),
-        "volume_up":          lambda i: volume_up(),
-        "volume_down":        lambda i: volume_down(),
-        "volume_mute":        lambda i: volume_mute(),
+        "browser_search":          lambda i: browser_search(i["query"]),
+        "browser_open":            lambda i: browser_open(i["url"]),
+        "youtube_play_song":       lambda i: youtube_play_song(i["query"]),
+        "youtube_music_play_song": lambda i: youtube_music_play_song(i["query"]),
+        "browser_play_pause":      lambda i: browser_play_pause(),
+        "browser_next_track":      lambda i: browser_next_track(),
+        "file_write":              lambda i: file_write(i["path"], i["content"]),
+        "file_append":             lambda i: file_append(i["path"], i["content"]),
+        "file_read":               lambda i: file_read(i["path"]),
+        "file_delete":             lambda i: file_delete(i["path"]),
+        "file_list":               lambda i: file_list(i.get("path", ".")),
+        "app_open":                lambda i: app_open(i["app_name"]),
+        "app_close":               lambda i: app_close(i["app_name"]),
+        "volume_up":               lambda i: volume_up(),
+        "volume_down":             lambda i: volume_down(),
+        "volume_mute":             lambda i: volume_mute(),
     }
     fn = mapping.get(name)
     if fn:
